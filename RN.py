@@ -10,12 +10,10 @@ class RN:
     Wh=None
     Wo=None
 
+    Bh=None
+    Bo=None
 
-    NetO = None
     NetH = None
-
-    InputI = None
-    InputO = None
 
     errorMin = 0.01
     alpha = 0.5
@@ -24,53 +22,87 @@ class RN:
         self.NNI = Si
         self.NNH = Sh
         self.NNO = So
-        self.Wh = np.random.rand( self.NNI+1,self.NNH )
-        self.Wo = np.random.rand( self.NNH+1, self.NNO )
-
+        #Pesos
+        self.Wh = np.array(np.random.rand( self.NNI,self.NNH ),ndmin=2,dtype=float)
+        self.Wo = np.array(np.random.rand( self.NNH,self.NNO ),ndmin=2,dtype=float)
+        #Bias
+        self.Bh = np.array(np.random.rand(self.NNH),ndmin=2,dtype=float)
+        self.Bo = np.array(np.random.rand(self.NNO),ndmin=2,dtype=float)
 
     #Función de Activación
-    def activate(self,v):
+    def sigmoidea(self,v):
         return 1/(1+np.exp(-v))
 
-    def forward(self,I,Sd):
-        print("Forward")
-        self.InputI = np.asmatrix(np.append(1,np.array(I)))
-        print("NetH: ", np.shape(self.InputI), ".", np.shape(self.Wh))
-        self.NetH = self.activate(np.matmul( self.InputI , self.Wh ))
-        self.InputO  = np.asmatrix(np.append(1,self.NetH ))
-        print("NetO: ", np.shape(self.InputO), ".", np.shape(self.Wo))
-        self.NetO = np.asmatrix(self.activate( np.matmul( self.InputO, self.Wo)))
-        return np.sum((np.square( Sd - self.NetO))/2)
+    def sigmoideaDeriv(self,v):
+        return v * (1 - v)
 
-    def backward(self,Sd):
-        print("Backward")
-        #Regla de las deltas de la capa Output
-        print("DeltaO: (", np.shape(self.NetO),"-",np.shape(Sd),") X",np.shape(self.NetO),"X",np.shape((1 - self.NetO)) )
-        DeltaO  = np.multiply((self.NetO - Sd),(self.NetO) ,(1 - self.NetO))
-        print("varO: ",np.shape(self.InputO.T),"x",np.shape(DeltaO))
-        varO    = np.matmul(self.InputO.T,DeltaO)
+    def error(self,So,Sd):
+        return np.sum((np.square( Sd - So))/2)
+
+    def forward(self,I):
+        self.NetH  = (self.sigmoidea(np.dot( I , self.Wh )) + self.Bh)
+        NetO       = (self.sigmoidea( np.dot( self.NetH, self.Wo)) + self.Bo)
+        return NetO
+
+    def backward(self,I,Sd,So):
+        DeltaO      = (So - Sd) * self.sigmoideaDeriv(So)
+        DeltaH      = np.dot(DeltaO,self.Wo.T) * self.sigmoideaDeriv(self.NetH)
+
+        varH        = np.dot(I.T,DeltaH)
+        varO        = np.dot(self.NetH.T,DeltaO)
+
+        self.Wh+= self.alpha*varH
+        self.Bh+= self.alpha*DeltaH
+        self.Wo+= self.alpha*varO
+        self.Bo+= self.alpha*DeltaO
+
+    def entrenar(self,x,y,epocas):
+        pos = 0
+        for i in range(epocas):
+            X = np.array(x[pos],ndmin=2)
+            Y = np.array(y[pos],ndmin=2)
+            output = self.forward(X)
+            print(str(self.error(output, Y)))
+            self.backward(X,Y,output)
+            pos = (pos+1)%len(x)
+
+    def entrenar2(self,x,y):
+        pos=0
+        X = np.array(x[pos],ndmin=2)
+        Y = np.array(y[pos],ndmin=2)
+        output = self.forward(X)
+        error = self.error(output, Y)
+        print(error)
+        while( error > self.errorMin):
+            self.backward(X,Y,output)
+            X = np.array(x[pos],ndmin=2)
+            Y = np.array(y[pos],ndmin=2)
+            output = self.forward(X)
+            error = self.error(output, Y)
+            print(error)
+            pos = (pos+1)%len(x)
 
 
-        sig_prime   = np.multiply((self.NetH),(1 - self.NetH))
-        print("DeltaH: sum(",np.shape(np.asmatrix(np.append(1,DeltaO))) ,".", np.shape(self.Wh.T) ,")x",np.shape(sig_prime)  )
-        DeltaH      = np.sum(np.matrix.dot(np.asmatrix(np.append(1,DeltaO)),self.Wh.T)) * sig_prime
-        print("varH: ",np.shape(self.InputI.T),".",np.shape(DeltaH))
-        varH        = np.matmul(self.InputI.T,DeltaH)
+def cargarData(file):
+    xtemp=[]
+    ytemp=[]
+    data = open(file,'r')
+    lines = data.readlines()
+    for i in lines:
+        xtemp+= [i.rstrip('\n').split(',')[1:]]
+        if( int(i[0]) == 1 ):
+            ytemp+= [[0,0,1]]
+        elif(int(i[0]) == 2):
+            ytemp+= [[0,1,0]]
+        else:
+            ytemp+=[[1,0,0]]
 
+    return  np.array(xtemp,ndmin=2,dtype=float), np.array(ytemp,ndmin=2,dtype=float)
 
-        self.Wo = self.Wo - self.alpha*varO
-        print(np.shape(self.Wo),"-",np.shape(varO))
-        self.Wh = self.Wh - self.alpha*varH
-        print(np.shape(self.Wh),"-",np.shape(varH))
+def main():
+    a=RN(13,2,3)
+    x,y = cargarData("wine.txt")
+    a.entrenar(x,y,1000)
 
-
-
-    def learn(self,fileTraInputIng):
-        print("Learning")
-
-
-
-
-a=RN(4,2,1)
-print ("Error:",a.forward( [2,3,4,5],np.array([1]) ) )
-a.backward(np.array([1]))
+if __name__ == '__main__':
+    main()
