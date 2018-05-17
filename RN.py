@@ -16,7 +16,7 @@ class RN:
     NetH = None
 
     errorMin = 0.01
-    alpha = 0.5
+    alpha = 0.1
 
     def __init__(self,Si,Sh,So):
         self.NNI = Si
@@ -31,7 +31,7 @@ class RN:
 
     #Función de Activación
     def sigmoidea(self,v):
-        return 1/(1+np.exp(-v))
+        return (1.0)/((1.0)+np.exp(-v))
 
     def sigmoideaDeriv(self,v):
         return v * (1 - v)
@@ -52,9 +52,7 @@ class RN:
         varO        = np.dot(self.NetH.T,DeltaO)
 
         self.Wo = self.Wo - self.alpha*varO
-        print(np.shape(self.Wo),"-",np.shape(varO))
         self.Wh = self.Wh - self.alpha*varH
-        print(np.shape(self.Wh),"-",np.shape(varH))
 
     def entrenar(self,x,y,epocas):
         pos = 0
@@ -62,28 +60,26 @@ class RN:
             X = np.array(x[pos],ndmin=2)
             Y = np.array(y[pos],ndmin=2)
             output = self.forward(X)
-            print(str(self.error(output, Y)))
+            #print(str(self.error(output, Y)))
             self.backward(X,Y,output)
-            pos = (pos+1)%len(x)
+            pos = (pos+1)%(len(x))
 
-    def entrenar2(self,x,y):
-        pos=0
-        X = np.array(x[pos],ndmin=2)
-        Y = np.array(y[pos],ndmin=2)
+    def predecir(self,x,y):
+        X = np.array(x,ndmin=2)
+        print("PREDECIR: ", str(X))
+        Y = np.array(y,ndmin=2)
         output = self.forward(X)
         error = self.error(output, Y)
-        print(error)
-        while( error > self.errorMin):
-            self.backward(X,Y,output)
-            X = np.array(x[pos],ndmin=2)
-            Y = np.array(y[pos],ndmin=2)
-            output = self.forward(X)
-            error = self.error(output, Y)
-            print(error)
-            pos = (pos+1)%len(x)
+        print("Se predijo:", str(output))
+        print("Real:", str(Y))
+        print("El error es:", str(error))
+        bueno = False
+        if(  (output.argmax()) == (Y.argmax())  ):
+            bueno = True
 
+        return bueno
 
-def cargarData(file):
+def cargarData(file,mezclar):
     xtemp=[]
     ytemp=[]
     data = open(file,'r')
@@ -97,12 +93,38 @@ def cargarData(file):
         else:
             ytemp+=[[1,0,0]]
 
-    return  np.array(xtemp,ndmin=2,dtype=float), np.array(ytemp,ndmin=2,dtype=float)
+    x,y = np.array(xtemp), np.array(ytemp)
+    perm = np.random.permutation(x.shape[0]) #Permutar los datos
+    if(mezclar==1):
+        x = x[perm]
+        y = y[perm]
+    return  np.array(x,ndmin=2,dtype=float), np.array(y,ndmin=2,dtype=float)
 
 def main():
-    a=RN(13,8,3)
-    x,y = cargarData("wine.txt")
-    a.entrenar(x,y,1000)
+    #Creación de RN.
+    #Input,Nodos Capa Hidden, Output
+    a=RN(13,10,3)
+    #Cargar datos para entrenar
+    x,y = cargarData("wine2.txt",1)
+    x = x/np.amax(x,axis=0) #Normalizar
+    a.entrenar(x,y,30000) #30000 iteraciones
+
+    #Predecir nuevos datos
+    x_pred,y_pred = cargarData("wine3.txt",1)
+    x_pred = x_pred/np.amax(x_pred,axis=0)
+    buenos = 0
+    for i in range(len(x_pred)):
+         if( a.predecir(x_pred[i],y_pred[i]) == True):
+            print("Correcto")
+            buenos+=1
+
+    prom = buenos/len(x_pred)
+    print("Promedio de buenos", prom*100)
+
+
+#59(1) , 70(2), 47(3)  -> Original (wine.txt)
+#35(1) , 42(2), 28(3)  -> Entrenar (wine2.txt)
+#24(1) , 28(2), 19(3)  -> Predecir (wine3.txt)
 
 if __name__ == '__main__':
     main()
