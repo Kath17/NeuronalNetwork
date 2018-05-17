@@ -40,8 +40,8 @@ class RN:
         return np.sum((np.square( Sd - So))/2)
 
     def forward(self,I):
-        self.NetH  = (self.sigmoidea(np.dot( I , self.Wh )) + self.Bh)
-        NetO       = (self.sigmoidea( np.dot( self.NetH, self.Wo)) + self.Bo)
+        self.NetH  = (self.sigmoidea(np.dot(I , self.Wh ) + self.Bh))
+        NetO       = (self.sigmoidea(np.dot( self.NetH, self.Wo) + self.Bo))
         return NetO
 
     def backward(self,I,Sd,So):
@@ -51,10 +51,10 @@ class RN:
         varH        = np.dot(I.T,DeltaH)
         varO        = np.dot(self.NetH.T,DeltaO)
 
-        self.Wh+= self.alpha*varH
-        self.Bh+= self.alpha*DeltaH
-        self.Wo+= self.alpha*varO
-        self.Bo+= self.alpha*DeltaO
+        self.Wo = self.Wo - self.alpha*varO
+        print(np.shape(self.Wo),"-",np.shape(varO))
+        self.Wh = self.Wh - self.alpha*varH
+        print(np.shape(self.Wh),"-",np.shape(varH))
 
     def entrenar(self,x,y,epocas):
         pos = 0
@@ -100,7 +100,7 @@ def cargarData(file):
     return  np.array(xtemp,ndmin=2,dtype=float), np.array(ytemp,ndmin=2,dtype=float)
 
 def main():
-    a=RN(13,2,3)
+    a=RN(13,8,3)
     x,y = cargarData("wine.txt")
     a.entrenar(x,y,1000)
 
